@@ -65,10 +65,17 @@ export const Sidebar = ({ onOpenSettings }: { onOpenSettings: () => void }) => {
                   key={header}
                   draggable
                   onDragStart={(e) => onDragStart(e, header)}
+                  onClick={() => {
+                    const isImage = header.toLowerCase().includes('photo') || 
+                                    header.toLowerCase().includes('image') || 
+                                    header.toLowerCase().includes('pic');
+                    addField(isImage ? 'image' : 'text', header);
+                  }}
                   className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-zinc-400 hover:border-brand-red/50 hover:text-white transition-all cursor-grab active:cursor-grabbing group"
                 >
                   <GripVertical size={14} className="text-zinc-600 group-hover:text-brand-red transition-colors" />
                   <span className="truncate flex-1 font-medium">{header}</span>
+                  <Plus size={12} className="text-zinc-700 group-hover:text-brand-red opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all" />
                 </div>
               ))}
             </div>

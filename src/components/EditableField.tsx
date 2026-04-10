@@ -15,6 +15,7 @@ export const EditableField = ({ data, isSelected }: EditableFieldProps) => {
   const trRef = useRef<any>(null);
   const [qrUrl, setQrUrl] = useState<string>('');
   const [qrImage] = useImage(qrUrl);
+  const [placeholderImage] = useImage('https://picsum.photos/seed/user/200/200');
 
   useEffect(() => {
     if (data.type === 'qr') {
@@ -26,24 +27,28 @@ export const EditableField = ({ data, isSelected }: EditableFieldProps) => {
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
+      // we need to attach transformer manually
       trRef.current.nodes([shapeRef.current]);
       trRef.current.getLayer().batchDraw();
     }
-  }, [isSelected]);
+  }, [isSelected, data]); // Re-sync if data changes to keep transformer aligned
 
   const handleTransformEnd = () => {
     const node = shapeRef.current;
+    if (!node) return;
+
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
 
+    // Reset scale to 1 and update width/height instead
     node.scaleX(1);
     node.scaleY(1);
 
     updateField(data.id, {
       x: node.x(),
       y: node.y(),
-      width: Math.max(5, node.width() * scaleX),
-      height: Math.max(5, node.height() * scaleY),
+      width: Math.max(5, data.width * scaleX),
+      height: Math.max(5, data.height * scaleY),
     });
   };
 
@@ -53,8 +58,14 @@ export const EditableField = ({ data, isSelected }: EditableFieldProps) => {
         draggable
         x={data.x}
         y={data.y}
-        onClick={() => setSelectedId(data.id)}
-        onTap={() => setSelectedId(data.id)}
+        onClick={(e) => {
+          e.cancelBubble = true;
+          setSelectedId(data.id);
+        }}
+        onTap={(e) => {
+          e.cancelBubble = true;
+          setSelectedId(data.id);
+        }}
         onDragEnd={(e) => {
           updateField(data.id, {
             x: e.target.x(),
@@ -86,6 +97,15 @@ export const EditableField = ({ data, isSelected }: EditableFieldProps) => {
               strokeWidth={data.strokeWidth || 1}
               cornerRadius={data.cornerRadius || 0}
             />
+            {placeholderImage ? (
+              <KonvaImage
+                image={placeholderImage}
+                width={data.width}
+                height={data.height}
+                opacity={0.3}
+                cornerRadius={data.cornerRadius || 0}
+              />
+            ) : null}
             <Text
               text={`PHOTO: ${data.name}`}
               width={data.width}
@@ -94,6 +114,7 @@ export const EditableField = ({ data, isSelected }: EditableFieldProps) => {
               align="center"
               verticalAlign="middle"
               fill="#71717a"
+              fontStyle="bold"
             />
           </Group>
         ) : (
@@ -122,6 +143,7 @@ export const EditableField = ({ data, isSelected }: EditableFieldProps) => {
               verticalAlign="bottom"
               padding={5}
               fill="#71717a"
+              fontStyle="bold"
             />
           </Group>
         )}
@@ -139,7 +161,8 @@ export const EditableField = ({ data, isSelected }: EditableFieldProps) => {
         <Transformer
           ref={trRef}
           boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < 5 || newBox.height < 5) {
+            // limit minimum size
+            if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
               return oldBox;
             }
             return newBox;
@@ -151,6 +174,12 @@ export const EditableField = ({ data, isSelected }: EditableFieldProps) => {
           anchorFill="#ffffff"
           borderStroke="#ef4444"
           rotateEnabled={false}
+          flipEnabled={false}
+          enabledAnchors={[
+            'top-left', 'top-center', 'top-right',
+            'middle-right', 'middle-left',
+            'bottom-left', 'bottom-center', 'bottom-right'
+          ]}
         />
       )}
     </>

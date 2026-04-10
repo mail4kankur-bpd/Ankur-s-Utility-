@@ -1,13 +1,94 @@
 import React, { useState, useEffect } from 'react';
 import { useIdStore } from '../store/useIdStore';
-import { X, Download, Layout, Image as ImageIcon, FileText, Loader2, Eye } from 'lucide-react';
+import { X, Download, Layout, Image as ImageIcon, FileText, Loader2, Eye, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import JSZip from 'jszip';
+import { Stage, Layer, Text, Rect, Group, Image as KonvaImage } from 'react-konva';
+import { TemplateLayer } from './TemplateLayer';
+import useImage from 'use-image';
+import QRCode from 'qrcode';
+import { Field } from '../store/useIdStore';
 
 interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const PreviewField = ({ data }: { data: Field }) => {
+  const [qrUrl, setQrUrl] = useState<string>('');
+  const [qrImage] = useImage(qrUrl);
+
+  useEffect(() => {
+    if (data.type === 'qr') {
+      QRCode.toDataURL('QR Placeholder', { margin: 1 })
+        .then(url => setQrUrl(url))
+        .catch(err => console.error(err));
+    }
+  }, [data.type]);
+
+  if (data.type === 'text') {
+    return (
+      <Text
+        x={data.x}
+        y={data.y}
+        text={data.name}
+        width={data.width}
+        height={data.height}
+        fontSize={data.fontSize}
+        fontFamily={data.fontFamily}
+        fill={data.fill}
+        fontStyle={data.fontWeight === 'bold' || data.fontWeight === '600' ? 'bold' : 'normal'}
+        align={data.align}
+        verticalAlign="middle"
+        wrap={data.wrap === 'none' ? 'none' : data.wrap}
+      />
+    );
+  }
+
+  if (data.type === 'image') {
+    return (
+      <Group x={data.x} y={data.y}>
+        <Rect
+          width={data.width}
+          height={data.height}
+          fill="#f4f4f5"
+          stroke="#e4e4e7"
+          strokeWidth={1}
+          cornerRadius={data.cornerRadius || 0}
+        />
+        <Text
+          text="PHOTO"
+          width={data.width}
+          height={data.height}
+          fontSize={8}
+          align="center"
+          verticalAlign="middle"
+          fill="#71717a"
+        />
+      </Group>
+    );
+  }
+
+  return (
+    <Group x={data.x} y={data.y}>
+      {qrImage ? (
+        <KonvaImage
+          image={qrImage}
+          width={data.width}
+          height={data.height}
+        />
+      ) : (
+        <Rect
+          width={data.width}
+          height={data.height}
+          fill="#f4f4f5"
+          stroke="#e4e4e7"
+          strokeWidth={1}
+        />
+      )}
+    </Group>
+  );
+};
 
 export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
   const { fields, templateImage, canvasSize, canvasSizeCm, excelData, isGenerating, setIsGenerating } = useIdStore();
@@ -68,19 +149,21 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
       const row = excelData[i];
       const fileName = `${String(i + 1).padStart(3, '0')}-${row['Full Name'] || 'ID'}.${imageFormat}`;
       
-      const formData = new FormData();
-      formData.append("layout", JSON.stringify({
-        width: canvasSize.width,
-        height: canvasSize.height,
-        templateUrl: templateImage,
-        fields: fields,
-        singleData: row
-      }));
-      formData.append("format", imageFormat);
-
       const response = await fetch("/api/generate-single", {
         method: "POST",
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          layout: JSON.stringify({
+            width: canvasSize.width,
+            height: canvasSize.height,
+            templateUrl: templateImage,
+            fields: fields,
+            singleData: row
+          }),
+          format: imageFormat
+        }),
       });
 
       if (!response.ok) throw new Error(`Failed to generate card for ${row['Full Name']}`);
@@ -99,24 +182,26 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
   };
 
   const exportA4 = async () => {
-    const formData = new FormData();
-    formData.append("layout", JSON.stringify({
-      width: canvasSize.width,
-      height: canvasSize.height,
-      templateUrl: templateImage,
-      fields: fields,
-      excelData: excelData
-    }));
-    formData.append("a4Config", JSON.stringify({
-      orientation: a4Orientation,
-      columns,
-      rows,
-      gapCm
-    }));
-
     const response = await fetch("/api/generate-a4", {
       method: "POST",
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        layout: JSON.stringify({
+          width: canvasSize.width,
+          height: canvasSize.height,
+          templateUrl: templateImage,
+          fields: fields,
+          excelData: excelData
+        }),
+        a4Config: JSON.stringify({
+          orientation: a4Orientation,
+          columns,
+          rows,
+          gapCm
+        })
+      }),
     });
 
     if (!response.ok) throw new Error("A4 Generation failed");
@@ -304,15 +389,35 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
                 ))}
               </div>
             ) : (
-              <div className="text-center space-y-4">
-                <div className="w-32 h-40 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center mx-auto">
-                  <ImageIcon size={48} className="text-zinc-800" />
+              <div className="text-center space-y-6">
+                <div 
+                  className="bg-white shadow-2xl rounded-xl overflow-hidden mx-auto relative"
+                  style={{
+                    width: canvasSize.width * Math.min(200 / canvasSize.width, 250 / canvasSize.height),
+                    height: canvasSize.height * Math.min(200 / canvasSize.width, 250 / canvasSize.height)
+                  }}
+                >
+                  <Stage 
+                    width={canvasSize.width} 
+                    height={canvasSize.height}
+                    scaleX={Math.min(200 / canvasSize.width, 250 / canvasSize.height)}
+                    scaleY={Math.min(200 / canvasSize.width, 250 / canvasSize.height)}
+                  >
+                    <Layer>
+                      {templateImage && <TemplateLayer url={templateImage} />}
+                      {fields.map((field) => (
+                        <PreviewField key={field.id} data={field} />
+                      ))}
+                    </Layer>
+                  </Stage>
                 </div>
-                <p className="text-xs text-zinc-500 font-medium max-w-[200px]">
-                  Individual cards will be exported as {imageFormat.toUpperCase()} files in a ZIP archive.
-                </p>
-                <div className="bg-white/5 rounded-xl px-4 py-2 inline-block">
-                  <code className="text-[10px] text-brand-yellow font-mono">001-Name.{imageFormat}</code>
+                <div className="space-y-2">
+                  <p className="text-xs text-zinc-400 font-medium max-w-[240px] mx-auto">
+                    Individual cards will be exported as {imageFormat.toUpperCase()} files in a ZIP archive.
+                  </p>
+                  <div className="bg-white/5 rounded-xl px-4 py-2 inline-block border border-white/5">
+                    <code className="text-[10px] text-brand-yellow font-mono">001-Name.{imageFormat}</code>
+                  </div>
                 </div>
               </div>
             )}

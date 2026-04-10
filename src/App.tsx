@@ -9,6 +9,7 @@ import { Login } from './components/Login';
 import { CanvasSetup } from './components/CanvasSetup';
 import { PasswordChange } from './components/PasswordChange';
 import { ExportModal } from './components/ExportModal';
+import { ExcelUploadPrompt } from './components/ExcelUploadPrompt';
 import { Download, Loader2, AlertCircle, Menu, Settings as SettingsIcon, X, Sliders } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -36,7 +37,7 @@ export default function App() {
     window.addEventListener('resize', updateScale);
     updateScale();
     return () => window.removeEventListener('resize', updateScale);
-  }, [canvasSize]);
+  }, [canvasSize, templateImage, excelFile]);
 
   const handleGenerate = () => {
     if (!templateImage || !excelFile) return;
@@ -49,6 +50,10 @@ export default function App() {
 
   if (!templateImage) {
     return <CanvasSetup />;
+  }
+
+  if (!excelFile) {
+    return <ExcelUploadPrompt />;
   }
 
   return (
@@ -172,17 +177,6 @@ export default function App() {
             }
           }}
         >
-          {/* Mobile Floating Action Button for Export */}
-          <div className="md:hidden fixed bottom-6 right-6 z-40">
-             <button 
-              onClick={handleGenerate}
-              disabled={!templateImage || !excelFile || isGenerating}
-              className="w-14 h-14 bg-brand-red rounded-full flex items-center justify-center shadow-2xl disabled:opacity-50"
-            >
-              {isGenerating ? <Loader2 className="animate-spin text-white" /> : <Download className="text-white" />}
-            </button>
-          </div>
-
           <div 
             className="relative shadow-[0_0_100px_rgba(220,38,38,0.1)] rounded-2xl overflow-hidden bg-white"
             style={{ 
@@ -251,15 +245,24 @@ export default function App() {
       <ExportModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} />
 
       {/* Mobile FAB */}
-      <div className="md:hidden fixed bottom-8 right-8 z-50">
-        <button 
-          onClick={handleGenerate}
-          disabled={!templateImage || !excelFile || isGenerating}
-          className="w-16 h-16 bg-brand-red rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all disabled:opacity-30"
-        >
-          {isGenerating ? <Loader2 className="animate-spin text-white" /> : <Download className="text-white" />}
-        </button>
-      </div>
+      <AnimatePresence>
+        {!isSidebarOpen && !isPropertiesOpen && (
+          <motion.div 
+            initial={{ scale: 0, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0, opacity: 0, y: 20 }}
+            className="md:hidden fixed bottom-8 right-8 z-50"
+          >
+            <button 
+              onClick={handleGenerate}
+              disabled={!templateImage || !excelFile || isGenerating}
+              className="w-16 h-16 bg-brand-red rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all disabled:opacity-30"
+            >
+              {isGenerating ? <Loader2 className="animate-spin text-white" /> : <Download className="text-white" />}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -13,7 +13,24 @@ const upload = multer({ storage: multer.memoryStorage() });
 async function renderCard(ctx: any, bgImage: any, row: any, fields: any[], width: number, height: number) {
   // 1. Clear & Draw Template
   ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(bgImage, 0, 0, width, height);
+  
+  let bgW = bgImage.width;
+  let bgH = bgImage.height;
+  let drawX = 0;
+  let drawY = 0;
+
+  // Shrink to fit if it exceeds canvas dimensions
+  if (bgW > width || bgH > height) {
+    const ratio = Math.min(width / bgW, height / bgH);
+    bgW = bgW * ratio;
+    bgH = bgH * ratio;
+  }
+  
+  // Center the background image
+  drawX = (width - bgW) / 2;
+  drawY = (height - bgH) / 2;
+
+  ctx.drawImage(bgImage, drawX, drawY, bgW, bgH);
 
   // 2. Render Dynamic Fields
   for (const field of fields) {
